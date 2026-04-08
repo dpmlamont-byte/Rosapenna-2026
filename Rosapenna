@@ -1,0 +1,211 @@
+
+
+
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>Rosapenna 2026</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+<style>
+body {
+font-family: Arial;
+background: linear-gradient(#0b3d2e, #021a13);
+color: white;
+text-align: center;
+margin:0;
+}
+
+.header {
+padding:20px;
+background:#06251c;
+}
+
+h1 {
+color: gold;
+}
+
+.box {
+background:#102820;
+padding:15px;
+margin:10px;
+border-radius:12px;
+}
+
+input, select {
+padding:10px;
+margin:6px;
+width:90%;
+border-radius:8px;
+border:none;
+}
+
+button {
+padding:12px;
+background:gold;
+border:none;
+width:95%;
+border-radius:8px;
+font-weight:bold;
+cursor:pointer;
+}
+
+.holes {
+display:grid;
+grid-template-columns: repeat(3,1fr);
+}
+
+li {
+padding:8px;
+border-bottom:1px solid #333;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+<h1>Rosapenna 2026 ⛳</h1>
+🍺 🍺 🍺
+</div>
+
+<div class="box">
+<h3>💰 Payments</h3>
+<a href="https://revolut.me/daniel75yn" target="_blank">
+<button>Pay Entry / Trip Fees</button>
+</a>
+</div>
+
+<div class="box">
+<h3>Enter Round</h3>
+
+<select id="name">
+<option>Con</option>
+<option>Dan</option>
+<option>Dave Mc</option>
+<option>Graham</option>
+<option>Joe</option>
+<option>Karl</option>
+<option>Liam</option>
+<option>Louis</option>
+<option>Mick</option>
+<option>Morgan</option>
+<option>Niallers</option>
+<option>Patsy</option>
+<option>Potdogg</option>
+</select>
+
+<select id="course">
+<option>Sandy Hills</option>
+<option>St Patrick’s Links</option>
+<option>Old Tom Morris</option>
+</select>
+
+<input id="hcp" type="number" placeholder="Handicap">
+
+<div class="holes" id="holes"></div>
+
+<button onclick="submitScore()">Submit Round</button>
+</div>
+
+<div class="box">
+<h3>🏆 Leaderboard</h3>
+<ul id="board"></ul>
+</div>
+
+<script>
+const supabaseClient = supabase.createClient(
+"https://yhssrjvicbhualcbojhb.supabase.co",
+"
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...."
+"
+);
+
+// Course pars
+function getPars(course){
+
+if(course === "Sandy Hills"){
+return [5,4,3,4,4,4,3,5,4,4,3,4,5,4,4,3,5,4];
+}
+
+if(course === "St Patrick’s Links"){
+return [4,5,3,4,4,5,3,4,4,4,4,5,3,4,4,3,5,3];
+}
+
+if(course === "Old Tom Morris"){
+return [4,4,3,5,4,4,3,5,4,4,5,3,4,4,3,5,4,3];
+}
+}
+
+// Generate holes
+let holesDiv = document.getElementById("holes");
+for(let i=1;i<=18;i++){
+holesDiv.innerHTML += `<input type="number" placeholder="H${i}" id="h${i}">`;
+}
+
+// Submit score
+async function submitScore(){
+
+let name = document.getElementById("name").value;
+let course = document.getElementById("course").value;
+let hcp = parseInt(document.getElementById("hcp").value || 0);
+
+let pars = getPars(course);
+
+let total = 0;
+let birdies = 0;
+let eagles = 0;
+
+for(let i=1;i<=18;i++){
+let score = parseInt(document.getElementById("h"+i).value || 0);
+total += score;
+
+let par = pars[i-1];
+
+if(score === par - 1) birdies++;
+if(score <= par - 2) eagles++;
+}
+
+let totalPar = pars.reduce((a,b)=>a+b,0);
+let net = total - hcp;
+let stableford = 36 + (totalPar - net);
+
+await supabaseClient.from("scores").insert([
+{ name, course, total, net, stableford, birdies, eagles }
+]);
+
+alert("Score submitted 🍺");
+loadScores();
+}
+
+// Load leaderboard
+async function loadScores(){
+
+const { data } = await supabaseClient
+.from("scores")
+.select("*");
+
+let list = document.getElementById("board");
+list.innerHTML = "";
+
+if(!data) return;
+
+data.sort((a,b)=>b.stableford-a.stableford);
+
+data.forEach((p,i)=>{
+list.innerHTML += `
+<li>
+${i+1}. ${p.name} (${p.course})<br>
+🏆 ${p.stableford} pts | Net ${p.net}<br>
+🐦 ${p.birdies} | 🦅 ${p.eagles}
+</li>`;
+});
+}
+
+loadScores();
+</script>
+
+</body>
+</html>
