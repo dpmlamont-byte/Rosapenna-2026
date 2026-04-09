@@ -18,6 +18,29 @@ justify-content:center;
 
 .app { max-width:420px; width:100%; color:white; }
 
+.banner {
+background:gold;
+color:black;
+text-align:center;
+padding:12px;
+font-weight:bold;
+}
+
+.tabs {
+display:flex;
+gap:6px;
+padding:10px;
+}
+
+.tabs button {
+flex:1;
+background:#0d221b;
+color:white;
+border:none;
+padding:10px;
+border-radius:8px;
+}
+
 .box {
 background:#102820;
 margin:10px;
@@ -25,8 +48,16 @@ padding:14px;
 border-radius:14px;
 }
 
-button {
+input, select {
 padding:10px;
+margin:6px 0;
+width:100%;
+border-radius:10px;
+border:none;
+}
+
+button {
+padding:12px;
 background:gold;
 border:none;
 width:100%;
@@ -35,6 +66,31 @@ margin-top:8px;
 font-weight:bold;
 }
 
+.holes {
+display:grid;
+grid-template-columns: repeat(3,1fr);
+gap:8px;
+}
+
+.holeBox {
+background:#0d221b;
+padding:8px;
+border-radius:10px;
+text-align:center;
+font-size:12px;
+}
+
+.points { color:#7CFC00; font-size:11px; }
+
+.totals {
+background:#021a13;
+padding:10px;
+border-radius:10px;
+margin-bottom:10px;
+text-align:center;
+}
+
+/* ADMIN */
 #adminModal {
 display:none;
 position:fixed;
@@ -54,6 +110,7 @@ max-height:90%;
 overflow:auto;
 }
 
+/* SCORE GRID */
 .scoreGrid {
 display:grid;
 grid-template-columns: repeat(6,1fr);
@@ -68,7 +125,6 @@ text-align:center;
 font-size:12px;
 }
 
-/* SCORE COLOURS */
 .birdie { background:#1e90ff; color:white; }
 .par { background:#999; color:black; }
 .bogey { background:#0044cc; color:white; }
@@ -80,10 +136,61 @@ font-size:12px;
 
 <div class="app">
 
+<div class="banner">💸 Enter Wager</div>
+
+<div class="tabs">
+<button onclick="showTab('play')">⛳ Enter</button>
+<button onclick="showTab('leader')">🏆 Leaderboard</button>
+<button onclick="showTab('admin')">🔧 Admin</button>
+</div>
+
+<!-- PLAY -->
+<div id="playTab">
+<div class="box">
+
+<h3>Enter Round</h3>
+
+<div class="totals" id="totals">
+Total: 0 | Stableford: 0<br>
+Front 9: 0 | Back 9: 0
+</div>
+
+<select id="name">
+<option>Dan</option><option>Con</option><option>Graham</option>
+<option>Joe</option><option>Karl</option><option>Liam</option>
+<option>Louis</option><option>Mick</option><option>Morgan</option>
+</select>
+
+<select id="course">
+<option>Sandy Hills</option>
+<option>St Patrick's Links</option>
+<option>Old Tom Morris</option>
+</select>
+
+<input id="hcp" type="number" placeholder="Handicap">
+
+<div class="holes" id="holes"></div>
+
+<button onclick="openReview()">Submit Round</button>
+
+</div>
+</div>
+
+<!-- LEADERBOARD -->
+<div id="leaderTab" style="display:none;">
+<div class="box">
+<h3>🏆 Leaderboard</h3>
+<ul id="overall"></ul>
+</div>
+</div>
+
+<!-- ADMIN LOGIN -->
+<div id="adminTab" style="display:none;">
 <div class="box">
 <h3>Admin</h3>
-<input id="adminPass" type="password" placeholder="Password">
+<input id="adminPass" type="password">
 <button onclick="adminLogin()">Enter</button>
+</div>
 </div>
 
 </div>
@@ -106,18 +213,29 @@ const supabaseClient = createClient(
 "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inloc3NyanZpY2JodWFsY2JvamhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NTA2MzYsImV4cCI6MjA5MTIyNjYzNn0.8ex8oZ_MlTVme9_1qsxfMh_T8WFl-MmkrugAoypNI1c"
 );
 
+// AUTO DAY
+function getDay(course){
+if(course==="Sandy Hills") return 1;
+if(course==="St Patrick's Links") return 2;
+return 3;
+}
+
 // COURSE DATA
 function getCourseData(course){
 if(course==="Sandy Hills"){
-return {pars:[5,4,3,4,4,4,3,5,4,4,3,4,5,4,4,3,5,4]};
+return {pars:[5,4,3,4,4,4,3,5,4,4,3,4,5,4,4,3,5,4],
+index:[3,9,15,1,7,11,17,5,13,2,16,10,4,8,12,18,6,14]};
 }
 if(course==="St Patrick's Links"){
-return {pars:[4,5,3,4,4,5,3,4,4,4,4,5,3,4,4,3,5,3]};
+return {pars:[4,5,3,4,4,5,3,4,4,4,4,5,3,4,4,3,5,3],
+index:[7,1,15,5,11,3,17,9,13,2,8,4,18,6,10,16,12,14]};
 }
-return {pars:[4,4,3,5,4,4,3,5,4,4,5,3,4,4,3,5,4,3]};
+return {pars:[4,4,3,5,4,4,3,5,4,4,5,3,4,4,3,5,4,3],
+index:[9,5,17,1,7,13,15,3,11,2,4,18,6,10,14,8,12,16]};
 }
 
-// ADMIN LOGIN
+// (rest unchanged logic for holes + totals...)
+
 function adminLogin(){
 if(adminPass.value==="rosapenna123"){
 loadAdmin();
@@ -125,47 +243,32 @@ adminModal.style.display="block";
 }else alert("Wrong password");
 }
 
-// LOAD ADMIN
+// 🔥 FULL ADMIN WITH SCORECARDS
 async function loadAdmin(){
 
-const { data, error } = await supabaseClient
-.from("scores")
-.select("*");
-
-if(error){
-alert("Error: " + error.message);
-return;
-}
-
-if(!data || data.length === 0){
-adminContent.innerHTML = "<p>No scores found</p>";
-return;
-}
+const { data } = await supabaseClient.from("scores").select("*");
 
 adminContent.innerHTML="";
 
 data.forEach(r=>{
 
-let courseData = getCourseData(r.course);
+let courseData=getCourseData(r.course);
 
-let grid = "<div class='scoreGrid'>";
+let grid="<div class='scoreGrid'>";
 
-r.scores.forEach((score, i)=>{
+r.scores.forEach((s,i)=>{
 
-let par = courseData.pars[i];
-let diff = score - par;
+let diff=s-courseData.pars[i];
+let cls="other";
 
-let cls = "other";
+if(diff===-1) cls="birdie";
+else if(diff===0) cls="par";
+else if(diff===1) cls="bogey";
 
-if(diff === -1) cls = "birdie";
-else if(diff === 0) cls = "par";
-else if(diff === 1) cls = "bogey";
-
-grid += `<div class="scoreCell ${cls}">${score || "-"}</div>`;
-
+grid+=`<div class="scoreCell ${cls}">${s||"-"}</div>`;
 });
 
-grid += "</div>";
+grid+="</div>";
 
 let div=document.createElement("div");
 
@@ -178,35 +281,18 @@ ${grid}
 `;
 
 adminContent.appendChild(div);
+});
+}
 
+function deleteScore(id){
+supabaseClient.from("scores").delete().eq("id",id).then(()=>{
+loadAdmin();
+loadLeaderboard();
 });
 }
 
 function closeAdmin(){
 adminModal.style.display="none";
-}
-
-// DELETE
-async function deleteScore(id){
-
-const { data, error } = await supabaseClient
-.from("scores")
-.delete()
-.eq("id", id)
-.select();
-
-if(error){
-alert("Delete failed: " + error.message);
-return;
-}
-
-if(!data || data.length === 0){
-alert("Delete failed — ID issue");
-return;
-}
-
-alert("Deleted ✅");
-loadAdmin();
 }
 
 </script>
