@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Rosapenna 2026</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+<style>
+body {
+font-family: Arial;
+background: linear-gradient(#0b3d2e, #021a13);
+margin:0;
+display:flex;
+justify-content:center;
+}
+
+.app {
+width:100%;
+max-width:420px;
+color:white;
+}
+
+.banner {
+background:gold;
+color:black;
+text-align:center;
+padding:12px;
+font-weight:bold;
+cursor:pointer;
+}
+
+.header {
+padding:16px;
+text-align:center;
+}
+
+.box {
+background:#102820;
+margin:10px;
+padding:14px;
+border-radius:14px;
+}
+
+input, select {
+padding:12px;
+margin:6px 0;
+width:100%;
+border-radius:10px;
+border:none;
+}
+
+button {
+padding:14px;
+background:gold;
+border:none;
+width:100%;
+border-radius:10px;
+font-weight:bold;
+margin-top:8px;
+}
+
+.holes {
+display:grid;
+grid-template-columns: repeat(3,1fr);
+gap:8px;
+}
+
+.holeBox {
+background:#0d221b;
+padding:8px;
+border-radius:10px;
+text-align:center;
+font-size:12px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+<!-- REVOLUT -->
+<div class="banner" onclick="window.open('https://revolut.me/daniel75yn')">
+💸 Enter Wager (Revolut)
+</div>
+
+<div class="header">
+<h1>Rosapenna 2026 ⛳</h1>
+<p>🍺 🍺 🍺</p>
+</div>
+
+<div class="box">
+<h3>Enter Round</h3>
+
+<select id="day">
+<option value="1">Day 1</option>
+<option value="2">Day 2</option>
+<option value="3">Day 3</option>
+</select>
+
+<select id="name">
+<option>Con</option><option>Dan</option><option>Dave Mc</option>
+<option>Graham</option><option>Joe</option><option>Karl</option>
+<option>Liam</option><option>Louis</option><option>Mick</option>
+<option>Morgan</option><option>Niallers</option><option>Patsy</option>
+<option>Potdogg</option>
+</select>
+
+<select id="course">
+<option>Sandy Hills</option>
+<option>St Patrick's Links</option>
+<option>Old Tom Morris</option>
+</select>
+
+<input id="hcp" type="number" placeholder="Handicap">
+<input type="file" id="photo">
+
+<div class="holes" id="holes"></div>
+
+<button onclick="reviewScore()">Submit Round</button>
+</div>
+
+<div class="box" id="reviewBox" style="display:none;">
+<h3>Review Round</h3>
+<div id="reviewContent"></div>
+<button onclick="confirmSubmit()">Confirm</button>
+<button onclick="cancelReview()">Edit</button>
+</div>
+
+<div class="box">
+<h3>🏆 Overall Leaderboard</h3>
+<ul id="overall"></ul>
+</div>
+
+<div class="box">
+<h3>Admin</h3>
+<input id="adminPass" type="password" placeholder="Enter password">
+<button onclick="adminLogin()">Login</button>
+</div>
+
+</div>
+
+<script>
+const supabaseClient = supabase.createClient(
+"https://yhssrjvicbhualcbojhb.supabase.co",
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inloc3NyanZpY2JodWFsY2JvamhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NTA2MzYsImV4cCI6MjA5MTIyNjYzNn0.8ex8oZ_MlTVme9_1qsxfMh_T8WFl-MmkrugAoypNI1c"
+);
+
+let isAdmin=false;
+let pendingScore=null;
+let imageData=null;
+
+// IMAGE
+document.getElementById("photo").addEventListener("change", e=>{
+let reader=new FileReader();
+reader.onload=x=>imageData=x.target.result;
+reader.readAsDataURL(e.target.files[0]);
+});
+
+// HOLES
+function renderHoles(){
+let div=document.getElementById("holes");
+div.innerHTML="";
+
+for(let i=1;i<=18;i++){
+let box=document.createElement("div");
+box.className="holeBox";
+box.innerHTML=`Hole ${i}<input type="number" id="h${i}">`;
+
+let input=box.querySelector("input");
+input.oninput=()=>{
+if(i<18) document.getElementById("h"+(i+1)).focus();
+};
+
+div.appendChild(box);
+}
+}
+
+// REVIEW
+function reviewScore(){
+let holes=[],total=0;
+
+for(let i=1;i<=18;i++){
+let v=parseInt(document.getElementById("h"+i).value||0);
+holes.push(v);
+total+=v;
+}
+
+pendingScore={
+day:document.getElementById("day").value,
+name:document.getElementById("name").value,
+course:document.getElementById("course").value,
+total,
+holes,
+image:imageData,
+published:false
+};
+
+document.getElementById("reviewContent").innerHTML=`Total: ${total}`;
+document.getElementById("reviewBox").style.display="block";
+}
+
+// CONFIRM
+async function confirmSubmit(){
+await supabaseClient.from("scores").insert([pendingScore]);
+alert("Submitted");
+loadScores();
+}
+
+// LOAD
+async function loadScores(){
+
+let {data}=await supabaseClient.from("scores").select("*");
+
+let overall={};
+
+data.filter(s=>s.published).forEach(s=>{
+if(!overall[s.name]) overall[s.name]=0;
+overall[s.name]+=s.total;
+});
+
+let list=document.getElementById("overall");
+list.innerHTML="";
+
+Object.entries(overall)
+.sort((a,b)=>a[1]-b[1])
+.forEach((p,i)=>{
+list.innerHTML+=`<li>${i+1}. ${p[0]} - ${p[1]}</li>`;
+});
+
+if(isAdmin) renderAdmin(data);
+}
+
+// ADMIN
+function adminLogin(){
+if(document.getElementById("adminPass").value==="8886"){
+isAdmin=true;
+loadScores();
+}
+}
+
+function renderAdmin(data){
+
+let old=document.getElementById("adminPanel");
+if(old) old.remove();
+
+let div=document.createElement("div");
+div.id="adminPanel";
+div.className="box";
+
+let html="<h3>Admin</h3>";
+
+data.forEach(s=>{
+html+=`
+<div>
+<b>${s.name}</b> Day ${s.day} (${s.course}) - ${s.total}<br>
+<button onclick="toggle(${s.id})">View</button>
+<button onclick="deleteScore(${s.id})">Delete</button>
+
+<div id="v${s.id}" style="display:none;">
+${s.holes.map((h,i)=>`H${i+1}: ${h}`).join("<br>")}
+${s.image?`<img src="${s.image}" width="100%">`:""}
+</div>
+</div><hr>`;
+});
+
+html+=`<button onclick="publish()">Publish</button>`;
+
+div.innerHTML=html;
+document.querySelector(".app").appendChild(div);
+}
+
+// TOGGLE
+function toggle(id){
+let el=document.getElementById("v"+id);
+el.style.display=el.style.display==="none"?"block":"none";
+}
+
+// DELETE
+async function deleteScore(id){
+await supabaseClient.from("scores").delete().eq("id",id);
+loadScores();
+}
+
+// PUBLISH
+async function publish(){
+await supabaseClient.from("scores").update({published:true}).neq("id",0);
+loadScores();
+}
+
+// INIT
+renderHoles();
+loadScores();
+</script>
+
+</body>
+</html>
