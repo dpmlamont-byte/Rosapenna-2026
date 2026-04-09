@@ -90,7 +90,6 @@ margin-bottom:10px;
 text-align:center;
 }
 
-/* ADMIN */
 #adminModal {
 display:none;
 position:fixed;
@@ -109,26 +108,6 @@ border-radius:12px;
 max-height:90%;
 overflow:auto;
 }
-
-/* SCORE GRID */
-.scoreGrid {
-display:grid;
-grid-template-columns: repeat(6,1fr);
-gap:4px;
-margin-top:10px;
-}
-
-.scoreCell {
-padding:6px;
-border-radius:6px;
-text-align:center;
-font-size:12px;
-}
-
-.birdie { background:#1e90ff; color:white; }
-.par { background:#999; color:black; }
-.bogey { background:#0044cc; color:white; }
-.other { background:#222; }
 </style>
 </head>
 
@@ -136,7 +115,9 @@ font-size:12px;
 
 <div class="app">
 
-<div class="banner">💸 Enter Wager</div>
+<div class="banner" onclick="window.open('https://revolut.me/daniel75yn')">
+💸 Enter Wager
+</div>
 
 <div class="tabs">
 <button onclick="showTab('play')">⛳ Enter</button>
@@ -144,7 +125,6 @@ font-size:12px;
 <button onclick="showTab('admin')">🔧 Admin</button>
 </div>
 
-<!-- PLAY -->
 <div id="playTab">
 <div class="box">
 
@@ -156,9 +136,11 @@ Front 9: 0 | Back 9: 0
 </div>
 
 <select id="name">
-<option>Dan</option><option>Con</option><option>Graham</option>
-<option>Joe</option><option>Karl</option><option>Liam</option>
-<option>Louis</option><option>Mick</option><option>Morgan</option>
+<option>Con</option><option>Dan</option><option>Dave Mc</option>
+<option>Graham</option><option>Joe</option><option>Karl</option>
+<option>Liam</option><option>Louis</option><option>Mick</option>
+<option>Morgan</option><option>Niallers</option><option>Patsy</option>
+<option>Potdogg</option>
 </select>
 
 <select id="course">
@@ -176,7 +158,6 @@ Front 9: 0 | Back 9: 0
 </div>
 </div>
 
-<!-- LEADERBOARD -->
 <div id="leaderTab" style="display:none;">
 <div class="box">
 <h3>🏆 Leaderboard</h3>
@@ -184,11 +165,10 @@ Front 9: 0 | Back 9: 0
 </div>
 </div>
 
-<!-- ADMIN LOGIN -->
 <div id="adminTab" style="display:none;">
 <div class="box">
 <h3>Admin</h3>
-<input id="adminPass" type="password">
+<input id="adminPass" type="password" placeholder="Password">
 <button onclick="adminLogin()">Enter</button>
 </div>
 </div>
@@ -204,13 +184,23 @@ Front 9: 0 | Back 9: 0
 </div>
 </div>
 
+<!-- REVIEW -->
+<div id="reviewModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#000000dd;">
+<div style="background:#102820; margin:20px; padding:20px; border-radius:12px; max-height:90%; overflow:auto;">
+<h3>Confirm Score</h3>
+<div id="reviewContent"></div>
+<button onclick="confirmSubmit()">✅ Confirm</button>
+<button onclick="closeReview()">❌ Reject</button>
+</div>
+</div>
+
 <script>
 
 const { createClient } = supabase;
 
 const supabaseClient = createClient(
 "https://yhssrjvicbhualcbojhb.supabase.co",
-"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inloc3NyanZpY2JodWFsY2JvamhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NTA2MzYsImV4cCI6MjA5MTIyNjYzNn0.8ex8oZ_MlTVme9_1qsxfMh_T8WFl-MmkrugAoypNI1c"
+"YOUR_ANON_KEY_HERE"
 );
 
 // AUTO DAY
@@ -218,6 +208,19 @@ function getDay(course){
 if(course==="Sandy Hills") return 1;
 if(course==="St Patrick's Links") return 2;
 return 3;
+}
+
+let pendingData=null;
+
+// TABS
+function showTab(tab){
+playTab.style.display="none";
+leaderTab.style.display="none";
+adminTab.style.display="none";
+
+if(tab==="play") playTab.style.display="block";
+if(tab==="leader") { leaderTab.style.display="block"; loadLeaderboard(); }
+if(tab==="admin") adminTab.style.display="block";
 }
 
 // COURSE DATA
@@ -234,8 +237,165 @@ return {pars:[4,4,3,5,4,4,3,5,4,4,5,3,4,4,3,5,4,3],
 index:[9,5,17,1,7,13,15,3,11,2,4,18,6,10,14,8,12,16]};
 }
 
-// (rest unchanged logic for holes + totals...)
+// RENDER HOLES
+function renderHoles(){
 
+let data=getCourseData(course.value);
+let hcp=parseInt(hcpInput.value||0);
+
+holes.innerHTML="";
+
+for(let i=0;i<18;i++){
+
+let strokes=Math.floor(hcp/18);
+if(data.index[i] <= (hcp % 18)) strokes++;
+
+let box=document.createElement("div");
+box.className="holeBox";
+
+box.innerHTML=`
+<div><b>${i+1}</b></div>
+<div>P${data.pars[i]}</div>
+<div>SI ${data.index[i]}</div>
+<input type="number" id="h${i+1}">
+<div class="points" id="pts${i+1}"></div>
+`;
+
+let input=box.querySelector("input");
+
+input.oninput=()=>{
+let score=parseInt(input.value);
+if(!score) return;
+
+let net=score-strokes;
+let diff=net-data.pars[i];
+
+let pts= diff<=-2?4:diff===-1?3:diff===0?2:diff===1?1:0;
+
+document.getElementById("pts"+(i+1)).innerText=pts+" pts";
+
+if(i<17) document.getElementById("h"+(i+2)).focus();
+
+updateTotals();
+};
+
+holes.appendChild(box);
+}
+}
+
+// TOTALS
+function updateTotals(){
+
+let data=getCourseData(course.value);
+let hcp=parseInt(hcpInput.value||0);
+
+let total=0, stable=0, front=0, back=0;
+
+for(let i=0;i<18;i++){
+
+let strokes=Math.floor(hcp/18);
+if(data.index[i] <= (hcp % 18)) strokes++;
+
+let val=parseInt(document.getElementById("h"+(i+1)).value||0);
+if(!val) continue;
+
+total+=val;
+
+let diff=(val-strokes)-data.pars[i];
+let pts= diff<=-2?4:diff===-1?3:diff===0?2:diff===1?1:0;
+
+stable+=pts;
+
+if(i<9) front+=pts;
+else back+=pts;
+}
+
+totals.innerHTML=`Total: ${total} | Stableford: ${stable}<br>
+Front 9: ${front} | Back 9: ${back}`;
+}
+
+// REVIEW
+function openReview(){
+
+let scores=[];
+for(let i=1;i<=18;i++){
+let v=document.getElementById("h"+i).value;
+scores.push(v?parseInt(v):0);
+}
+
+if(scores.every(s=>s===0)){
+alert("Enter scores");
+return;
+}
+
+pendingData={
+name:name.value,
+day:getDay(course.value),
+course:course.value,
+hcp:parseInt(hcpInput.value||0),
+scores
+};
+
+let html=`<b>${pendingData.name}</b><br>
+Day ${pendingData.day} (${pendingData.course})<br><br>`;
+
+scores.forEach((s,i)=>{ if(s) html+=`Hole ${i+1}: ${s}<br>` });
+
+reviewContent.innerHTML=html;
+reviewModal.style.display="block";
+}
+
+function closeReview(){ reviewModal.style.display="none"; }
+
+// SUBMIT
+async function confirmSubmit(){
+
+let total = pendingData.scores.reduce((a,b)=>a+b,0);
+
+await supabaseClient.from("scores").insert([{
+id: crypto.randomUUID(),
+...pendingData,
+total,
+approved:true
+}]);
+
+alert("Submitted ✅");
+
+document.querySelectorAll("input[type=number]").forEach(i=>i.value="");
+renderHoles();
+
+closeReview();
+}
+
+// LEADERBOARD
+async function loadLeaderboard(){
+
+const { data, error } = await supabaseClient.from("scores").select("*");
+
+if(error){
+alert("Leaderboard error: " + error.message);
+return;
+}
+
+let totalsMap={};
+
+data.forEach(r=>{
+if(!totalsMap[r.name]) totalsMap[r.name]=0;
+totalsMap[r.name]+=r.total;
+});
+
+overall.innerHTML="";
+
+Object.entries(totalsMap)
+.sort((a,b)=>a[1]-b[1])
+.forEach(([n,t])=>{
+let li=document.createElement("li");
+li.innerText=`${n} - ${t}`;
+overall.appendChild(li);
+});
+}
+
+// ADMIN LOGIN
 function adminLogin(){
 if(adminPass.value==="rosapenna123"){
 loadAdmin();
@@ -243,39 +403,35 @@ adminModal.style.display="block";
 }else alert("Wrong password");
 }
 
-// 🔥 FULL ADMIN WITH SCORECARDS
+// ✅ FIXED ADMIN LOAD
 async function loadAdmin(){
 
-const { data } = await supabaseClient.from("scores").select("*");
+const { data, error } = await supabaseClient
+.from("scores")
+.select("*");
+
+console.log("ADMIN DATA:", data);
+console.log("ADMIN ERROR:", error);
+
+if(error){
+alert("Error loading admin: " + error.message);
+return;
+}
+
+if(!data || data.length === 0){
+adminContent.innerHTML = "<p>No scores found</p>";
+return;
+}
 
 adminContent.innerHTML="";
 
 data.forEach(r=>{
-
-let courseData=getCourseData(r.course);
-
-let grid="<div class='scoreGrid'>";
-
-r.scores.forEach((s,i)=>{
-
-let diff=s-courseData.pars[i];
-let cls="other";
-
-if(diff===-1) cls="birdie";
-else if(diff===0) cls="par";
-else if(diff===1) cls="bogey";
-
-grid+=`<div class="scoreCell ${cls}">${s||"-"}</div>`;
-});
-
-grid+="</div>";
-
 let div=document.createElement("div");
 
 div.innerHTML=`
-<b>${r.name}</b> - ${r.course}<br>
-Total: ${r.total}
-${grid}
+<b>${r.name}</b> - Day ${r.day}<br>
+${r.course}<br>
+Total: ${r.total}<br>
 <button onclick="deleteScore('${r.id}')">Delete</button>
 <hr>
 `;
@@ -284,16 +440,44 @@ adminContent.appendChild(div);
 });
 }
 
-function deleteScore(id){
-supabaseClient.from("scores").delete().eq("id",id).then(()=>{
-loadAdmin();
-loadLeaderboard();
-});
-}
-
 function closeAdmin(){
 adminModal.style.display="none";
 }
+
+// DELETE
+async function deleteScore(id){
+
+const { data, error } = await supabaseClient
+.from("scores")
+.delete()
+.eq("id", id)
+.select();
+
+if(error){
+alert("Delete failed: " + error.message);
+return;
+}
+
+if(!data || data.length === 0){
+alert("Nothing deleted — ID mismatch");
+return;
+}
+
+alert("Deleted ✅");
+
+loadAdmin();
+loadLeaderboard();
+}
+
+// INIT
+const course=document.getElementById("course");
+const hcpInput=document.getElementById("hcp");
+
+course.addEventListener("change",renderHoles);
+hcpInput.addEventListener("input",renderHoles);
+
+renderHoles();
+loadLeaderboard();
 
 </script>
 
