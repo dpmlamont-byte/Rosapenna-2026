@@ -15,11 +15,7 @@ display:flex;
 justify-content:center;
 }
 
-.app {
-width:100%;
-max-width:420px;
-color:white;
-}
+.app { max-width:420px; width:100%; color:white; }
 
 .banner {
 background:gold;
@@ -27,12 +23,6 @@ color:black;
 text-align:center;
 padding:12px;
 font-weight:bold;
-cursor:pointer;
-}
-
-.header {
-padding:16px;
-text-align:center;
 }
 
 .box {
@@ -43,7 +33,7 @@ border-radius:14px;
 }
 
 input, select {
-padding:12px;
+padding:10px;
 margin:6px 0;
 width:100%;
 border-radius:10px;
@@ -51,13 +41,13 @@ border:none;
 }
 
 button {
-padding:14px;
+padding:12px;
 background:gold;
 border:none;
 width:100%;
 border-radius:10px;
-font-weight:bold;
 margin-top:8px;
+font-weight:bold;
 }
 
 .holes {
@@ -73,6 +63,16 @@ border-radius:10px;
 text-align:center;
 font-size:12px;
 }
+
+.points { color:#7CFC00; font-size:11px; }
+
+.totals {
+background:#021a13;
+padding:10px;
+border-radius:10px;
+margin-bottom:10px;
+text-align:center;
+}
 </style>
 </head>
 
@@ -80,18 +80,18 @@ font-size:12px;
 
 <div class="app">
 
-<!-- REVOLUT -->
 <div class="banner" onclick="window.open('https://revolut.me/daniel75yn')">
 💸 Enter Wager (Revolut)
 </div>
 
-<div class="header">
-<h1>Rosapenna 2026 ⛳</h1>
-<p>🍺 🍺 🍺</p>
-</div>
-
 <div class="box">
+
 <h3>Enter Round</h3>
+
+<div class="totals" id="totals">
+Total: 0 | Stableford: 0<br>
+Front 9: 0 | Back 9: 0
+</div>
 
 <select id="day">
 <option value="1">Day 1</option>
@@ -114,18 +114,12 @@ font-size:12px;
 </select>
 
 <input id="hcp" type="number" placeholder="Handicap">
+
 <input type="file" id="photo">
 
 <div class="holes" id="holes"></div>
 
 <button onclick="reviewScore()">Submit Round</button>
-</div>
-
-<div class="box" id="reviewBox" style="display:none;">
-<h3>Review Round</h3>
-<div id="reviewContent"></div>
-<button onclick="confirmSubmit()">Confirm</button>
-<button onclick="cancelReview()">Edit</button>
 </div>
 
 <div class="box">
@@ -135,7 +129,7 @@ font-size:12px;
 
 <div class="box">
 <h3>Admin</h3>
-<input id="adminPass" type="password" placeholder="Enter password">
+<input id="adminPass" type="password">
 <button onclick="adminLogin()">Login</button>
 </div>
 
@@ -147,151 +141,133 @@ const supabaseClient = supabase.createClient(
 "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inloc3NyanZpY2JodWFsY2JvamhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NTA2MzYsImV4cCI6MjA5MTIyNjYzNn0.8ex8oZ_MlTVme9_1qsxfMh_T8WFl-MmkrugAoypNI1c"
 );
 
-let isAdmin=false;
-let pendingScore=null;
 let imageData=null;
 
-// IMAGE
 document.getElementById("photo").addEventListener("change", e=>{
 let reader=new FileReader();
 reader.onload=x=>imageData=x.target.result;
 reader.readAsDataURL(e.target.files[0]);
 });
 
-// HOLES
+// COURSE DATA
+function getCourseData(course){
+if(course==="Sandy Hills"){
+return {pars:[5,4,3,4,4,4,3,5,4,4,3,4,5,4,4,3,5,4],
+index:[3,9,15,1,7,11,17,5,13,2,16,10,4,8,12,18,6,14]};
+}
+if(course==="St Patrick's Links"){
+return {pars:[4,5,3,4,4,5,3,4,4,4,4,5,3,4,4,3,5,3],
+index:[7,1,15,5,11,3,17,9,13,2,8,4,18,6,10,16,12,14]};
+}
+return {pars:[4,4,3,5,4,4,3,5,4,4,5,3,4,4,3,5,4,3],
+index:[9,5,17,1,7,13,15,3,11,2,4,18,6,10,14,8,12,16]};
+}
+
+// RENDER HOLES
 function renderHoles(){
+
+let course=document.getElementById("course").value;
+let data=getCourseData(course);
+let hcp=parseInt(document.getElementById("hcp").value||0);
+
 let div=document.getElementById("holes");
 div.innerHTML="";
 
-for(let i=1;i<=18;i++){
+for(let i=0;i<18;i++){
+
+let strokes=Math.floor(hcp/18);
+if(data.index[i] <= (hcp % 18)) strokes++;
+
 let box=document.createElement("div");
 box.className="holeBox";
-box.innerHTML=`Hole ${i}<input type="number" id="h${i}">`;
+
+box.innerHTML=`
+<div><b>Hole ${i+1}</b></div>
+<div>Par ${data.pars[i]}</div>
+<div>SI ${data.index[i]}</div>
+<input type="number" id="h${i+1}">
+<div class="points" id="pts${i+1}"></div>
+`;
 
 let input=box.querySelector("input");
+
 input.oninput=()=>{
-if(i<18) document.getElementById("h"+(i+1)).focus();
+
+let score=parseInt(input.value);
+if(!score) return;
+
+let par=data.pars[i];
+let net=score-strokes;
+let diff=net-par;
+
+// STABLEFORD
+let pts=0;
+if(diff<=-2) pts=4;
+else if(diff===-1) pts=3;
+else if(diff===0) pts=2;
+else if(diff===1) pts=1;
+
+document.getElementById("pts"+(i+1)).innerText=pts+" pts";
+
+// COLOUR
+if(score < par) input.style.color="red";
+else if(score === par) input.style.color="white";
+else input.style.color="#4da6ff";
+
+// AUTO NEXT
+if(i<17) document.getElementById("h"+(i+2)).focus();
+
+updateTotals();
 };
 
 div.appendChild(box);
 }
 }
 
-// REVIEW
-function reviewScore(){
-let holes=[],total=0;
+// TOTALS
+function updateTotals(){
 
-for(let i=1;i<=18;i++){
-let v=parseInt(document.getElementById("h"+i).value||0);
-holes.push(v);
-total+=v;
+let course=document.getElementById("course").value;
+let data=getCourseData(course);
+let hcp=parseInt(document.getElementById("hcp").value||0);
+
+let total=0, stable=0, front=0, back=0;
+
+for(let i=0;i<18;i++){
+
+let strokes=Math.floor(hcp/18);
+if(data.index[i] <= (hcp % 18)) strokes++;
+
+let val=parseInt(document.getElementById("h"+(i+1)).value||0);
+if(!val) continue;
+
+total+=val;
+
+let net=val-strokes;
+let diff=net-data.pars[i];
+
+let pts=0;
+if(diff<=-2) pts=4;
+else if(diff===-1) pts=3;
+else if(diff===0) pts=2;
+else if(diff===1) pts=1;
+
+stable+=pts;
+
+if(i<9) front+=pts;
+else back+=pts;
 }
 
-pendingScore={
-day:document.getElementById("day").value,
-name:document.getElementById("name").value,
-course:document.getElementById("course").value,
-total,
-holes,
-image:imageData,
-published:false
-};
-
-document.getElementById("reviewContent").innerHTML=`Total: ${total}`;
-document.getElementById("reviewBox").style.display="block";
-}
-
-// CONFIRM
-async function confirmSubmit(){
-await supabaseClient.from("scores").insert([pendingScore]);
-alert("Submitted");
-loadScores();
-}
-
-// LOAD
-async function loadScores(){
-
-let {data}=await supabaseClient.from("scores").select("*");
-
-let overall={};
-
-data.filter(s=>s.published).forEach(s=>{
-if(!overall[s.name]) overall[s.name]=0;
-overall[s.name]+=s.total;
-});
-
-let list=document.getElementById("overall");
-list.innerHTML="";
-
-Object.entries(overall)
-.sort((a,b)=>a[1]-b[1])
-.forEach((p,i)=>{
-list.innerHTML+=`<li>${i+1}. ${p[0]} - ${p[1]}</li>`;
-});
-
-if(isAdmin) renderAdmin(data);
-}
-
-// ADMIN
-function adminLogin(){
-if(document.getElementById("adminPass").value==="8886"){
-isAdmin=true;
-loadScores();
-}
-}
-
-function renderAdmin(data){
-
-let old=document.getElementById("adminPanel");
-if(old) old.remove();
-
-let div=document.createElement("div");
-div.id="adminPanel";
-div.className="box";
-
-let html="<h3>Admin</h3>";
-
-data.forEach(s=>{
-html+=`
-<div>
-<b>${s.name}</b> Day ${s.day} (${s.course}) - ${s.total}<br>
-<button onclick="toggle(${s.id})">View</button>
-<button onclick="deleteScore(${s.id})">Delete</button>
-
-<div id="v${s.id}" style="display:none;">
-${s.holes.map((h,i)=>`H${i+1}: ${h}`).join("<br>")}
-${s.image?`<img src="${s.image}" width="100%">`:""}
-</div>
-</div><hr>`;
-});
-
-html+=`<button onclick="publish()">Publish</button>`;
-
-div.innerHTML=html;
-document.querySelector(".app").appendChild(div);
-}
-
-// TOGGLE
-function toggle(id){
-let el=document.getElementById("v"+id);
-el.style.display=el.style.display==="none"?"block":"none";
-}
-
-// DELETE
-async function deleteScore(id){
-await supabaseClient.from("scores").delete().eq("id",id);
-loadScores();
-}
-
-// PUBLISH
-async function publish(){
-await supabaseClient.from("scores").update({published:true}).neq("id",0);
-loadScores();
+document.getElementById("totals").innerHTML=
+`Total: ${total} | Stableford: ${stable}<br>
+Front 9: ${front} | Back 9: ${back}`;
 }
 
 // INIT
+document.getElementById("course").addEventListener("change",renderHoles);
+document.getElementById("hcp").addEventListener("input",renderHoles);
+
 renderHoles();
-loadScores();
 </script>
 
 </body>
