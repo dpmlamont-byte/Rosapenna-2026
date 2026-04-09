@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>Rosapenna 2026</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 
 <style>
@@ -88,6 +89,26 @@ border-radius:10px;
 margin-bottom:10px;
 text-align:center;
 }
+
+/* ADMIN MODAL */
+#adminModal {
+display:none;
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:#000000dd;
+}
+
+.adminBox {
+background:#102820;
+margin:20px;
+padding:20px;
+border-radius:12px;
+max-height:90%;
+overflow:auto;
+}
 </style>
 </head>
 
@@ -96,7 +117,7 @@ text-align:center;
 <div class="app">
 
 <div class="banner" onclick="window.open('https://revolut.me/daniel75yn')">
-💸 Enter Wager (Revolut)
+💸 Enter Wager
 </div>
 
 <div class="tabs">
@@ -105,9 +126,8 @@ text-align:center;
 <button onclick="showTab('admin')">🔧 Admin</button>
 </div>
 
-<!-- PLAY TAB -->
+<!-- PLAY -->
 <div id="playTab">
-
 <div class="box">
 
 <h3>Enter Round</h3>
@@ -116,12 +136,6 @@ text-align:center;
 Total: 0 | Stableford: 0<br>
 Front 9: 0 | Back 9: 0
 </div>
-
-<select id="day">
-<option value="1">Day 1</option>
-<option value="2">Day 2</option>
-<option value="3">Day 3</option>
-</select>
 
 <select id="name">
 <option>Con</option><option>Dan</option><option>Dave Mc</option>
@@ -149,26 +163,32 @@ Front 9: 0 | Back 9: 0
 <!-- LEADERBOARD -->
 <div id="leaderTab" style="display:none;">
 <div class="box">
-<h3>🏆 Overall Leaderboard</h3>
+<h3>🏆 Leaderboard</h3>
 <ul id="overall"></ul>
 </div>
 </div>
 
-<!-- ADMIN -->
+<!-- ADMIN LOGIN -->
 <div id="adminTab" style="display:none;">
 <div class="box">
-<h3>Admin Panel</h3>
-
+<h3>Admin</h3>
 <input id="adminPass" type="password" placeholder="Password">
-<button onclick="adminLogin()">Login</button>
+<button onclick="adminLogin()">Enter</button>
+</div>
+</div>
 
+</div>
+
+<!-- ADMIN MODAL -->
+<div id="adminModal">
+<div class="adminBox">
+<h3>Admin Panel</h3>
 <div id="adminContent"></div>
+<button onclick="closeAdmin()">Close</button>
 </div>
 </div>
 
-</div>
-
-<!-- REVIEW MODAL -->
+<!-- REVIEW -->
 <div id="reviewModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#000000dd;">
 <div style="background:#102820; margin:20px; padding:20px; border-radius:12px; max-height:90%; overflow:auto;">
 <h3>Confirm Score</h3>
@@ -180,13 +200,21 @@ Front 9: 0 | Back 9: 0
 
 <script>
 
-const supabaseClient = supabase.createClient(
+const { createClient } = supabase;
+
+const supabaseClient = createClient(
 "https://yhssrjvicbhualcbojhb.supabase.co",
 "YOUR_ANON_KEY_HERE"
 );
 
+// AUTO DAY
+function getDay(course){
+if(course==="Sandy Hills") return 1;
+if(course==="St Patrick's Links") return 2;
+return 3;
+}
+
 let pendingData=null;
-let admin=false;
 
 // TABS
 function showTab(tab){
@@ -195,11 +223,11 @@ leaderTab.style.display="none";
 adminTab.style.display="none";
 
 if(tab==="play") playTab.style.display="block";
-if(tab==="leader") leaderTab.style.display="block";
+if(tab==="leader") { leaderTab.style.display="block"; loadLeaderboard(); }
 if(tab==="admin") adminTab.style.display="block";
 }
 
-// COURSE DATA
+// COURSE DATA (same as yours)
 function getCourseData(course){
 if(course==="Sandy Hills"){
 return {pars:[5,4,3,4,4,4,3,5,4,4,3,4,5,4,4,3,5,4],
@@ -213,7 +241,7 @@ return {pars:[4,4,3,5,4,4,3,5,4,4,5,3,4,4,3,5,4,3],
 index:[9,5,17,1,7,13,15,3,11,2,4,18,6,10,14,8,12,16]};
 }
 
-// RENDER HOLES
+// RENDER HOLES (same logic)
 function renderHoles(){
 
 let data=getCourseData(course.value);
@@ -259,7 +287,7 @@ holes.appendChild(box);
 }
 }
 
-// TOTALS
+// TOTALS (same)
 function updateTotals(){
 
 let data=getCourseData(course.value);
@@ -306,13 +334,15 @@ return;
 
 pendingData={
 name:name.value,
-day:day.value,
+day:getDay(course.value),
 course:course.value,
 hcp:parseInt(hcpInput.value||0),
 scores
 };
 
-let html=`<b>${pendingData.name}</b><br>Day ${pendingData.day}<br><br>`;
+let html=`<b>${pendingData.name}</b><br>
+Day ${pendingData.day} (${pendingData.course})<br><br>`;
+
 scores.forEach((s,i)=>{ if(s) html+=`Hole ${i+1}: ${s}<br>` });
 
 reviewContent.innerHTML=html;
@@ -329,21 +359,21 @@ let total = pendingData.scores.reduce((a,b)=>a+b,0);
 await supabaseClient.from("scores").insert([{
 ...pendingData,
 total,
-approved:false
+approved:true
 }]);
 
 alert("Submitted ✅");
+
+document.querySelectorAll("input[type=number]").forEach(i=>i.value="");
+renderHoles();
+
 closeReview();
-loadLeaderboard();
 }
 
 // LEADERBOARD
 async function loadLeaderboard(){
 
-let { data } = await supabaseClient
-.from("scores")
-.select("*")
-.eq("approved", true);
+let { data } = await supabaseClient.from("scores").select("*");
 
 let totalsMap={};
 
@@ -363,15 +393,15 @@ overall.appendChild(li);
 });
 }
 
-// ADMIN
+// ADMIN LOGIN
 function adminLogin(){
 if(adminPass.value==="rosapenna123"){
-admin=true;
 loadAdmin();
-alert("Admin ON");
-}else alert("Wrong");
+adminModal.style.display="block";
+}else alert("Wrong password");
 }
 
+// LOAD ADMIN
 async function loadAdmin(){
 
 let { data } = await supabaseClient.from("scores").select("*");
@@ -379,28 +409,29 @@ let { data } = await supabaseClient.from("scores").select("*");
 adminContent.innerHTML="";
 
 data.forEach(r=>{
-let d=document.createElement("div");
+let div=document.createElement("div");
 
-d.innerHTML=`
-<b>${r.name}</b> Day ${r.day}<br>
-${r.total}<br>
-<button onclick="approve('${r.id}')">Approve</button>
-<button onclick="removeScore('${r.id}')">Delete</button>
+div.innerHTML=`
+<b>${r.name}</b> - Day ${r.day}<br>
+${r.course}<br>
+Total: ${r.total}<br>
+<button onclick="deleteScore('${r.id}')">Delete</button>
 <hr>
 `;
 
-adminContent.appendChild(d);
+adminContent.appendChild(div);
 });
 }
 
-async function approve(id){
-await supabaseClient.from("scores").update({approved:true}).eq("id",id);
-loadAdmin(); loadLeaderboard();
+function closeAdmin(){
+adminModal.style.display="none";
 }
 
-async function removeScore(id){
+// DELETE
+async function deleteScore(id){
 await supabaseClient.from("scores").delete().eq("id",id);
 loadAdmin();
+loadLeaderboard();
 }
 
 // INIT
