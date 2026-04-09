@@ -90,7 +90,6 @@ margin-bottom:10px;
 text-align:center;
 }
 
-/* ADMIN MODAL */
 #adminModal {
 display:none;
 position:fixed;
@@ -126,7 +125,6 @@ overflow:auto;
 <button onclick="showTab('admin')">🔧 Admin</button>
 </div>
 
-<!-- PLAY -->
 <div id="playTab">
 <div class="box">
 
@@ -160,7 +158,6 @@ Front 9: 0 | Back 9: 0
 </div>
 </div>
 
-<!-- LEADERBOARD -->
 <div id="leaderTab" style="display:none;">
 <div class="box">
 <h3>🏆 Leaderboard</h3>
@@ -168,7 +165,6 @@ Front 9: 0 | Back 9: 0
 </div>
 </div>
 
-<!-- ADMIN LOGIN -->
 <div id="adminTab" style="display:none;">
 <div class="box">
 <h3>Admin</h3>
@@ -227,7 +223,7 @@ if(tab==="leader") { leaderTab.style.display="block"; loadLeaderboard(); }
 if(tab==="admin") adminTab.style.display="block";
 }
 
-// COURSE DATA (same as yours)
+// COURSE DATA
 function getCourseData(course){
 if(course==="Sandy Hills"){
 return {pars:[5,4,3,4,4,4,3,5,4,4,3,4,5,4,4,3,5,4],
@@ -241,7 +237,7 @@ return {pars:[4,4,3,5,4,4,3,5,4,4,5,3,4,4,3,5,4,3],
 index:[9,5,17,1,7,13,15,3,11,2,4,18,6,10,14,8,12,16]};
 }
 
-// RENDER HOLES (same logic)
+// RENDER HOLES
 function renderHoles(){
 
 let data=getCourseData(course.value);
@@ -287,7 +283,7 @@ holes.appendChild(box);
 }
 }
 
-// TOTALS (same)
+// TOTALS
 function updateTotals(){
 
 let data=getCourseData(course.value);
@@ -351,12 +347,13 @@ reviewModal.style.display="block";
 
 function closeReview(){ reviewModal.style.display="none"; }
 
-// SUBMIT
+// SUBMIT (WITH FIXED ID)
 async function confirmSubmit(){
 
 let total = pendingData.scores.reduce((a,b)=>a+b,0);
 
 await supabaseClient.from("scores").insert([{
+id: crypto.randomUUID(),
 ...pendingData,
 total,
 approved:true
@@ -427,9 +424,31 @@ function closeAdmin(){
 adminModal.style.display="none";
 }
 
-// DELETE
+// ✅ FIXED DELETE
 async function deleteScore(id){
-await supabaseClient.from("scores").delete().eq("id",id);
+
+console.log("Deleting ID:", id);
+
+const { data, error } = await supabaseClient
+.from("scores")
+.delete()
+.eq("id", id)
+.select();
+
+console.log("Result:", data, error);
+
+if(error){
+alert("Delete failed: " + error.message);
+return;
+}
+
+if(!data || data.length === 0){
+alert("Nothing deleted — ID mismatch");
+return;
+}
+
+alert("Deleted ✅");
+
 loadAdmin();
 loadLeaderboard();
 }
