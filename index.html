@@ -31,6 +31,7 @@ input, select {
   width:90%;
   border-radius:8px;
   border:none;
+  text-align:center;
 }
 
 button {
@@ -46,6 +47,17 @@ button {
   display:grid;
   grid-template-columns: repeat(3,1fr);
   gap:6px;
+}
+
+/* 🎯 NEW STYLES */
+.scoreCircle {
+  border:2px solid #00ffcc;
+  border-radius:50%;
+}
+
+.scoreSquare {
+  border:2px solid red;
+  border-radius:4px;
 }
 
 .adminItem {
@@ -116,13 +128,39 @@ if(course==="St Patrick's Links") return [4,5,3,4,4,5,3,4,4,4,4,5,3,4,4,3,5,3];
 return [4,4,3,5,4,4,3,5,4,4,5,3,4,4,3,5,4,3];
 }
 
-// CREATE HOLES
+// CREATE HOLES WITH AUTO JUMP + LIVE STYLING
 let holesDiv = document.getElementById("holes");
+
 for(let i=1;i<=18;i++){
 let input=document.createElement("input");
 input.type="number";
 input.placeholder="H"+i;
 input.id="h"+i;
+
+input.oninput = () => {
+
+let course=document.getElementById("course").value;
+let pars=getPars(course);
+let score=parseInt(input.value||0);
+
+// reset styles
+input.classList.remove("scoreCircle","scoreSquare");
+
+// 🎯 STYLE LOGIC
+if(score === pars[i-1]-1){
+  input.classList.add("scoreCircle"); // birdie
+}
+if(score === pars[i-1]+1){
+  input.classList.add("scoreSquare"); // bogey
+}
+
+// AUTO JUMP
+if(input.value && i < 18){
+  document.getElementById("h"+(i+1)).focus();
+}
+
+};
+
 holesDiv.appendChild(input);
 }
 
@@ -149,8 +187,7 @@ let totalPar=pars.reduce((a,b)=>a+b,0);
 let net=total-hcp;
 let stableford=36+(totalPar-net);
 
-// 🔥 FIXED INSERT
-const { data, error } = await supabaseClient
+const { error } = await supabaseClient
 .from("scores")
 .insert([{
 id: crypto.randomUUID(),
@@ -165,7 +202,6 @@ eagles
 
 if(error){
 alert("ERROR: " + error.message);
-console.log(error);
 return;
 }
 
@@ -180,21 +216,15 @@ loadScores();
 // LEADERBOARD
 async function loadScores(){
 
-const { data, error } = await supabaseClient
+const { data } = await supabaseClient
 .from("scores")
 .select("*");
-
-if(error){
-alert("Error: " + error.message);
-return;
-}
 
 if(!data || data.length === 0){
 document.getElementById("board").innerHTML = "<li>No scores yet</li>";
 return;
 }
 
-// sort by stableford
 data.sort((a,b)=>b.stableford - a.stableford);
 
 let list=document.getElementById("board");
