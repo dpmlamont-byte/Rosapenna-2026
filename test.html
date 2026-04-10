@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Rosapenna 2026</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+<style>
+body {
+  font-family: Arial;
+  background: linear-gradient(#0b3d2e, #000);
+  color: white;
+  text-align: center;
+}
+
+h1 {
+  color: #ffd700;
+}
+
+input, select, button {
+  padding: 10px;
+  margin: 5px;
+  border-radius: 5px;
+  border: none;
+}
+
+button {
+  background: #ffd700;
+  font-weight: bold;
+}
+
+.leaderboard {
+  background: #123;
+  margin: 10px;
+  padding: 10px;
+  border-radius: 10px;
+}
+
+.birdie { color: #4fc3f7; }
+.eagle { color: #00e676; }
+.par { color: #ccc; }
+.bogey { color: #ff5252; }
+
+.hidden { display:none; }
+</style>
+</head>
+
+<body>
+
+<h1>Rosapenna 2026</h1>
+
+<h2>Submit Score</h2>
+
+<input id="name" placeholder="Name">
+<select id="course">
+  <option value="Sandy Hills">Sandy Hills</option>
+  <option value="Old Tom Morris">Old Tom Morris</option>
+  <option value="St Patrick's">St Patrick's</option>
+</select>
+
+<input id="total" type="number" placeholder="Total Score">
+<input id="stableford" type="number" placeholder="Stableford">
+
+<button onclick="submitScore()">Submit</button>
+
+<h2>Course Leaderboards</h2>
+<div id="leaderboards"></div>
+
+<h2>Overall Leaderboard</h2>
+<div id="overallLeaderboard"></div>
+
+<br>
+<button onclick="adminLogin()">Admin</button>
+
+<div id="adminPanel" class="hidden">
+  <h2>Admin Panel</h2>
+  <div id="adminScores"></div>
+</div>
+
+<script>
+const supabaseUrl = "https://YOUR_PROJECT.supabase.co";
+const supabaseKey = "YOUR_ANON_KEY";
+const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+// SUBMIT SCORE
+async function submitScore() {
+  const name = document.getElementById("name").value.trim();
+  const course = document.getElementById("course").value;
+  const total = parseInt(document.getElementById("total").value);
+  const stableford = parseInt(document.getElementById("stableford").value);
+
+  if (!name || isNaN(total) || isNaN(stableford)) {
+    alert("Please fill in all fields");
+    return;
+  }
+
+  // Prevent duplicate entry per course
+  let { data: existing } = await supabase
+    .from("scores")
+    .select("*")
+    .eq("name", name)
+    .eq("course", course);
+
+  if (existing.length > 0) {
+    alert("Score already submitted for this course");
+    return;
+  }
+
+  await supabase.from("scores").insert([
+    { name, course, total, stableford }
+  ]);
+
+  alert("Score submitted!");
+  loadScores();
+}
+
+// LOAD SCORES
+async function loadScores() {
+  let { data } = await supabase.from("scores").select("*");
+
+  const courses = ["Sandy Hills", "Old Tom Morris", "St Patrick's"];
+
+  // COURSE LEADERBOARDS
+  let leaderboardHTML = "";
+
+  courses.forEach(course => {
+    let scores = data
+      .filter(s => s.course === course)
+      .sort((a,b) => b.stableford - a.stableford);
+
+    leaderboardHTML += `<div class="leaderboard"><h3>${course}</h3>`;
+
+    scores.forEach(s => {
+      leaderboardHTML += `<div>${s.name} - ${s.stableford}</div>`;
+    });
+
+    leaderboardHTML += `</div>`;
+  });
+
+  document.getElementById("leaderboards").innerHTML = leaderboardHTML;
+
+  // OVERALL LEADERBOARD (NEW)
+  let overallMap = {};
+
+  data.forEach(s => {
+    if (!overallMap[s.name]) overallMap[s.name] = 0;
+    overallMap[s.name] += s.stableford;
+  });
+
+  let overallArray = Object.keys(overallMap).map(name => ({
+    name: name,
+    total: overallMap[name]
+  }));
+
+  overallArray.sort((a,b) => b.total - a.total);
+
+  let overallHTML = "";
+
+  overallArray.forEach(p => {
+    overallHTML += `<div>${p.name} - ${p.total}</div>`;
+  });
+
+  document.getElementById("overallLeaderboard").innerHTML = overallHTML;
+}
+
+// ADMIN LOGIN
+function adminLogin() {
+  const password = prompt("Enter admin password");
+
+  if (password === "8886") {
+    document.getElementById("adminPanel").classList.remove("hidden");
+    loadAdmin();
+  } else {
+    alert("Wrong password");
+  }
+}
+
+// LOAD ADMIN DATA
+async function loadAdmin() {
+  let { data } = await supabase.from("scores").select("*");
+
+  let html = "";
+
+  data.forEach(s => {
+    html += `
+      <div>
+        ${s.name} - ${s.course} - ${s.stableford}
+        <button onclick="deleteScore(${s.id})">Delete</button>
+      </div>
+    `;
+  });
+
+  document.getElementById("adminScores").innerHTML = html;
+}
+
+// DELETE SCORE
+async function deleteScore(id) {
+  await supabase.from("scores").delete().eq("id", id);
+  loadScores();
+  loadAdmin();
+}
+
+// INITIAL LOAD
+loadScores();
+</script>
+
+</body>
+</html>
