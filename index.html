@@ -121,9 +121,20 @@ button {
 
 </div>
 
+<!-- Leaderboards per course -->
 <div class="box">
-<h3>🏆 Leaderboard</h3>
-<div id="board"></div>
+<h3>🏆 Sandy Hills</h3>
+<div id="board-sandy"></div>
+</div>
+
+<div class="box">
+<h3>🏆 St Patrick's Links</h3>
+<div id="board-stp"></div>
+</div>
+
+<div class="box">
+<h3>🏆 Old Tom Morris</h3>
+<div id="board-old"></div>
 </div>
 
 <div class="box">
@@ -204,7 +215,7 @@ document.getElementById("h"+(i+1)).focus();
 }
 }
 
-// SUBMIT
+// ✅ UPDATED SUBMIT FUNCTION (duplicate protection)
 async function submitScore(){
 
 let name=document.getElementById("name").value;
@@ -218,6 +229,18 @@ if(!tees) return alert("Select tees");
 if(hcp==="") return alert("Enter handicap");
 
 hcp=parseInt(hcp);
+
+// check if already submitted
+const { data: existing } = await supabaseClient
+.from("scores")
+.select("id")
+.eq("name", name)
+.eq("course", course);
+
+if(existing && existing.length > 0){
+alert("⚠️ You have already submitted a score for this course");
+return;
+}
 
 let data=getCourse(course);
 
@@ -246,7 +269,11 @@ created_at:new Date()
 }]);
 
 if(error){
+if(error.message && error.message.toLowerCase().includes("duplicate")){
+alert("⚠️ Score already exists for this player on this course");
+}else{
 alert("ERROR: " + error.message);
+}
 return;
 }
 
@@ -256,29 +283,43 @@ renderScorecard();
 loadScores();
 }
 
-// LEADERBOARD
+// LEADERBOARDS
 async function loadScores(){
 
 const { data } = await supabaseClient.from("scores").select("*");
-
 if(!data) return;
 
-data.sort((a,b)=>{
+function sortBoard(arr){
+arr.sort((a,b)=>{
 if(b.stableford!==a.stableford) return b.stableford-a.stableford;
 return a.back9-b.back9;
 });
+}
 
+function render(arr, el){
 let html="";
-
-data.forEach((p,i)=>{
+arr.forEach((p,i)=>{
 html+=`
 <div class="leaderItem">
 ${i+1}. ${p.name}<br>
 Gross ${p.total} | Net ${p.net} | ${p.stableford} pts
 </div>`;
 });
+document.getElementById(el).innerHTML = html || "No scores yet";
+}
 
-document.getElementById("board").innerHTML=html;
+let sandy = data.filter(p=>p.course==="Sandy Hills");
+let stp = data.filter(p=>p.course==="St Patrick's Links");
+let old = data.filter(p=>p.course==="Old Tom Morris");
+
+sortBoard(sandy);
+sortBoard(stp);
+sortBoard(old);
+
+render(sandy,"board-sandy");
+render(stp,"board-stp");
+render(old,"board-old");
+
 }
 
 // ADMIN
