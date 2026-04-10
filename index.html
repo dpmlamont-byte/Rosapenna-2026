@@ -9,79 +9,89 @@
 
 <style>
 body {
-  font-family: Arial;
-  background: linear-gradient(#0b3d2e,#021a13);
-  color:white;
-  text-align:center;
   margin:0;
+  background: linear-gradient(#0b3d2e,#021a13);
+  display:flex;
+  justify-content:center;
+  font-family: Arial;
 }
 
-h1 { color: gold; }
+.app {
+  max-width:420px;
+  width:100%;
+  color:white;
+}
+
+h1 { color:gold; text-align:center; }
 
 .box {
   background:#102820;
-  padding:15px;
   margin:10px;
+  padding:12px;
   border-radius:12px;
 }
 
-input, select {
+select, input {
+  width:100%;
   padding:10px;
-  margin:6px 0;
-  width:90%;
-  border-radius:8px;
+  margin:5px 0;
   border:none;
+  border-radius:8px;
   text-align:center;
 }
 
 button {
+  width:100%;
   padding:12px;
   background:gold;
   border:none;
-  width:95%;
-  border-radius:8px;
+  border-radius:10px;
   font-weight:bold;
 }
 
-.holes {
+.scorecard {
   display:grid;
-  grid-template-columns: repeat(3,1fr);
+  grid-template-columns:repeat(3,1fr);
   gap:6px;
 }
 
-/* 🎯 NEW STYLES */
-.scoreCircle {
-  border:2px solid #00ffcc;
-  border-radius:50%;
+.hole {
+  background:#0d221b;
+  padding:6px;
+  border-radius:10px;
+  text-align:center;
+  font-size:12px;
 }
 
-.scoreSquare {
-  border:2px solid red;
-  border-radius:4px;
+.par { font-size:11px; color:#ccc; }
+.si { font-size:10px; color:#888; }
+
+.scoreCircle { border:2px solid #00ffcc; border-radius:50%; }
+.scoreSquare { border:2px solid red; border-radius:4px; }
+
+.leaderItem {
+  border-bottom:1px solid #333;
+  padding:8px 0;
 }
 
 .adminItem {
   border-top:1px solid #333;
-  margin-top:10px;
-  padding-top:10px;
+  padding-top:8px;
+  margin-top:8px;
 }
 </style>
 </head>
 
 <body>
 
-<h1>Rosapenna 2026 ⛳ 🍺</h1>
+<div class="app">
+
+<h1>Rosapenna 2026 ⛳</h1>
 
 <div class="box">
-<a href="https://revolut.me/daniel75yn" target="_blank">
-<button>💰 Pay Entry</button>
-</a>
-</div>
-
-<div class="box">
-<h3>Enter Round</h3>
 
 <select id="name">
+<option value="">Select Player</option>
 <option>Con</option><option>Dan</option><option>Dave Mc</option>
 <option>Graham</option><option>Joe</option><option>Karl</option>
 <option>Liam</option><option>Louis</option><option>Mick</option>
@@ -89,22 +99,31 @@ button {
 <option>Potdogg</option>
 </select>
 
-<select id="course">
+<select id="course" onchange="renderScorecard()">
+<option value="">Select Course</option>
 <option>Sandy Hills</option>
 <option>St Patrick's Links</option>
 <option>Old Tom Morris</option>
 </select>
 
+<select id="tees">
+<option value="">Select Tees</option>
+<option value="white">White</option>
+<option value="blue">Blue</option>
+<option value="champ">Championship</option>
+</select>
+
 <input id="hcp" type="number" placeholder="Handicap">
 
-<div class="holes" id="holes"></div>
+<div id="scorecard" class="scorecard"></div>
 
 <button onclick="submitScore()">Submit Round</button>
+
 </div>
 
 <div class="box">
 <h3>🏆 Leaderboard</h3>
-<ul id="board"></ul>
+<div id="board"></div>
 </div>
 
 <div class="box">
@@ -114,6 +133,8 @@ button {
 <div id="adminPanel" style="display:none;"></div>
 </div>
 
+</div>
+
 <script>
 
 const supabaseClient = supabase.createClient(
@@ -121,47 +142,66 @@ const supabaseClient = supabase.createClient(
 "sb_publishable_prN_qRoPSNE3fEpSEB7XtA_ScMpnZSo"
 );
 
-// PARS
-function getPars(course){
-if(course==="Sandy Hills") return [5,4,3,4,4,4,3,5,4,4,3,4,5,4,4,3,5,4];
-if(course==="St Patrick's Links") return [4,5,3,4,4,5,3,4,4,4,4,5,3,4,4,3,5,3];
-return [4,4,3,5,4,4,3,5,4,4,5,3,4,4,3,5,4,3];
+// COURSE DATA
+function getCourse(course){
+
+if(course==="St Patrick's Links"){
+return {
+pars:[4,4,3,5,3,5,4,4,4,4,4,5,4,4,3,4,3,4],
+si:[7,11,17,3,13,1,9,15,5,8,6,4,12,10,18,2,14,16]
+};
 }
 
-// CREATE HOLES WITH AUTO JUMP + LIVE STYLING
-let holesDiv = document.getElementById("holes");
-
-for(let i=1;i<=18;i++){
-let input=document.createElement("input");
-input.type="number";
-input.placeholder="H"+i;
-input.id="h"+i;
-
-input.oninput = () => {
-
-let course=document.getElementById("course").value;
-let pars=getPars(course);
-let score=parseInt(input.value||0);
-
-// reset styles
-input.classList.remove("scoreCircle","scoreSquare");
-
-// 🎯 STYLE LOGIC
-if(score === pars[i-1]-1){
-  input.classList.add("scoreCircle"); // birdie
-}
-if(score === pars[i-1]+1){
-  input.classList.add("scoreSquare"); // bogey
+if(course==="Sandy Hills"){
+return {
+pars:[5,4,3,4,4,4,3,5,4,4,3,4,5,4,4,3,5,4],
+si:[13,3,17,11,5,1,15,9,7,6,12,10,8,18,2,14,16,4]
+};
 }
 
-// AUTO JUMP
-if(input.value && i < 18){
-  document.getElementById("h"+(i+1)).focus();
-}
-
+return {
+pars:[4,4,3,4,4,3,4,4,5,4,4,4,3,4,4,3,4,5],
+si:[9,5,17,1,7,13,15,3,11,2,4,18,6,10,14,8,12,16]
 };
 
-holesDiv.appendChild(input);
+}
+
+// SCORECARD
+function renderScorecard(){
+
+let course=document.getElementById("course").value;
+if(!course) return;
+
+let data=getCourse(course);
+let html="";
+
+for(let i=0;i<18;i++){
+html+=`
+<div class="hole">
+<b>${i+1}</b>
+<div class="par">Par ${data.pars[i]}</div>
+<div class="si">SI ${data.si[i]}</div>
+<input type="number" id="h${i+1}">
+</div>`;
+}
+
+document.getElementById("scorecard").innerHTML=html;
+
+for(let i=1;i<=18;i++){
+let input=document.getElementById("h"+i);
+
+input.oninput=()=>{
+let score=parseInt(input.value||0);
+input.classList.remove("scoreCircle","scoreSquare");
+
+if(score===data.pars[i-1]-1) input.classList.add("scoreCircle");
+if(score===data.pars[i-1]+1) input.classList.add("scoreSquare");
+
+if(input.value && i<18){
+document.getElementById("h"+(i+1)).focus();
+}
+};
+}
 }
 
 // SUBMIT
@@ -169,35 +209,40 @@ async function submitScore(){
 
 let name=document.getElementById("name").value;
 let course=document.getElementById("course").value;
-let hcp=parseInt(document.getElementById("hcp").value||0);
+let tees=document.getElementById("tees").value;
+let hcp=document.getElementById("hcp").value;
 
-let pars=getPars(course);
+if(!name) return alert("Select player");
+if(!course) return alert("Select course");
+if(!tees) return alert("Select tees");
+if(hcp==="") return alert("Enter handicap");
 
-let total=0, birdies=0, eagles=0;
+hcp=parseInt(hcp);
+
+let data=getCourse(course);
+
+let total=0, back9=0;
 
 for(let i=1;i<=18;i++){
-let score=parseInt(document.getElementById("h"+i).value||0);
-total+=score;
-
-if(score===pars[i-1]-1) birdies++;
-if(score<=pars[i-1]-2) eagles++;
+let v=parseInt(document.getElementById("h"+i).value||0);
+total+=v;
+if(i>9) back9+=v;
 }
 
-let totalPar=pars.reduce((a,b)=>a+b,0);
+let totalPar=data.pars.reduce((a,b)=>a+b,0);
 let net=total-hcp;
 let stableford=36+(totalPar-net);
 
-const { error } = await supabaseClient
-.from("scores")
-.insert([{
+const { error } = await supabaseClient.from("scores").insert([{
 id: crypto.randomUUID(),
 name,
 course,
+tees,
 total,
 net,
 stableford,
-birdies,
-eagles
+back9,
+created_at:new Date()
 }]);
 
 if(error){
@@ -205,42 +250,35 @@ alert("ERROR: " + error.message);
 return;
 }
 
-alert("Submitted 🍺");
+alert("Submitted");
 
-// clear inputs
-document.querySelectorAll("input[type=number]").forEach(i=>i.value="");
-
+renderScorecard();
 loadScores();
 }
 
 // LEADERBOARD
 async function loadScores(){
 
-const { data } = await supabaseClient
-.from("scores")
-.select("*");
+const { data } = await supabaseClient.from("scores").select("*");
 
-if(!data || data.length === 0){
-document.getElementById("board").innerHTML = "<li>No scores yet</li>";
-return;
-}
+if(!data) return;
 
-data.sort((a,b)=>b.stableford - a.stableford);
+data.sort((a,b)=>{
+if(b.stableford!==a.stableford) return b.stableford-a.stableford;
+return a.back9-b.back9;
+});
 
-let list=document.getElementById("board");
-list.innerHTML="";
+let html="";
 
 data.forEach((p,i)=>{
-
-let medal = i===0?"🥇":i===1?"🥈":i===2?"🥉":"";
-
-list.innerHTML+=`
-<li>
-${medal} ${p.name} (${p.course})<br>
-${p.stableford} pts | Net ${p.net}<br>
-🐦 ${p.birdies} | 🦅 ${p.eagles}
-</li>`;
+html+=`
+<div class="leaderItem">
+${i+1}. ${p.name}<br>
+Gross ${p.total} | Net ${p.net} | ${p.stableford} pts
+</div>`;
 });
+
+document.getElementById("board").innerHTML=html;
 }
 
 // ADMIN
@@ -252,19 +290,24 @@ loadAdmin();
 }
 
 async function loadAdmin(){
-let {data}=await supabaseClient.from("scores").select("*");
 
-let panel=document.getElementById("adminPanel");
-panel.innerHTML="";
+const { data } = await supabaseClient
+.from("scores")
+.select("*")
+.order("created_at",{ascending:false});
+
+let html="<h4>Review Scores</h4>";
 
 data.forEach(p=>{
-panel.innerHTML+=`
+html+=`
 <div class="adminItem">
 <b>${p.name}</b> (${p.course})<br>
 ${p.stableford} pts<br>
 <button onclick="del('${p.id}')">Delete</button>
 </div>`;
 });
+
+document.getElementById("adminPanel").innerHTML=html;
 }
 
 async function del(id){
