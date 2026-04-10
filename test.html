@@ -9,201 +9,394 @@
 
 <style>
 body {
+  margin:0;
+  background: linear-gradient(#0b3d2e,#021a13);
+  display:flex;
+  justify-content:center;
   font-family: Arial;
-  background: linear-gradient(#0b3d2e, #000);
-  color: white;
-  text-align: center;
 }
 
-h1 {
-  color: #ffd700;
+.app {
+  max-width:420px;
+  width:100%;
+  color:white;
 }
 
-input, select, button {
-  padding: 10px;
-  margin: 5px;
-  border-radius: 5px;
-  border: none;
+h1 { color:gold; text-align:center; }
+
+.box {
+  background:#102820;
+  margin:10px;
+  padding:12px;
+  border-radius:12px;
+}
+
+select, input {
+  width:100%;
+  padding:10px;
+  margin:5px 0;
+  border:none;
+  border-radius:8px;
+  text-align:center;
 }
 
 button {
-  background: #ffd700;
-  font-weight: bold;
+  width:100%;
+  padding:12px;
+  background:gold;
+  border:none;
+  border-radius:10px;
+  font-weight:bold;
 }
 
-.leaderboard {
-  background: #123;
-  margin: 10px;
-  padding: 10px;
-  border-radius: 10px;
+.scorecard {
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:6px;
 }
 
-.birdie { color: #4fc3f7; }
-.eagle { color: #00e676; }
-.par { color: #ccc; }
-.bogey { color: #ff5252; }
+.hole {
+  background:#0d221b;
+  padding:6px;
+  border-radius:10px;
+  text-align:center;
+  font-size:12px;
+}
 
-.hidden { display:none; }
+.par { font-size:11px; color:#ccc; }
+.si { font-size:10px; color:#888; }
+
+.scoreCircle { border:2px solid #00ffcc; border-radius:50%; }
+.scoreSquare { border:2px solid red; border-radius:4px; }
+
+.leaderItem {
+  border-bottom:1px solid #333;
+  padding:8px 0;
+}
+
+.adminItem {
+  border-top:1px solid #333;
+  padding-top:8px;
+  margin-top:8px;
+}
 </style>
 </head>
 
 <body>
 
-<h1>Rosapenna 2026</h1>
+<div class="app">
 
-<h2>Submit Score</h2>
+<h1>Rosapenna 2026 ⛳</h1>
 
-<input id="name" placeholder="Name">
-<select id="course">
-  <option value="Sandy Hills">Sandy Hills</option>
-  <option value="Old Tom Morris">Old Tom Morris</option>
-  <option value="St Patrick's">St Patrick's</option>
+<div class="box">
+
+<select id="name">
+<option value="">Select Player</option>
+<option>Con</option><option>Dan</option><option>Dave Mc</option>
+<option>Graham</option><option>Joe</option><option>Karl</option>
+<option>Liam</option><option>Louis</option><option>Mick</option>
+<option>Morgan</option><option>Niallers</option><option>Patsy</option>
+<option>Potdogg</option>
 </select>
 
-<input id="total" type="number" placeholder="Total Score">
-<input id="stableford" type="number" placeholder="Stableford">
+<select id="course" onchange="renderScorecard()">
+<option value="">Select Course</option>
+<option>Sandy Hills</option>
+<option>St Patrick's Links</option>
+<option>Old Tom Morris</option>
+</select>
 
-<button onclick="submitScore()">Submit</button>
+<select id="tees">
+<option value="">Select Tees</option>
+<option value="white">White</option>
+<option value="blue">Blue</option>
+<option value="champ">Championship</option>
+</select>
 
-<h2>Course Leaderboards</h2>
-<div id="leaderboards"></div>
+<input id="hcp" type="number" placeholder="Handicap">
 
-<h2>Overall Leaderboard</h2>
-<div id="overallLeaderboard"></div>
+<div id="scorecard" class="scorecard"></div>
 
-<br>
-<button onclick="adminLogin()">Admin</button>
+<button onclick="submitScore()">Submit Round</button>
 
-<div id="adminPanel" class="hidden">
-  <h2>Admin Panel</h2>
-  <div id="adminScores"></div>
+</div>
+
+<!-- Leaderboards -->
+<div class="box">
+<h3>🏆 Sandy Hills</h3>
+<div id="board-sandy"></div>
+</div>
+
+<div class="box">
+<h3>🏆 St Patrick's Links</h3>
+<div id="board-stp"></div>
+</div>
+
+<div class="box">
+<h3>🏆 Old Tom Morris</h3>
+<div id="board-old"></div>
+</div>
+
+<!-- ✅ OVERALL LEADERBOARD -->
+<div class="box">
+<h3>🏆 Overall Leaderboard</h3>
+<div id="board-overall"></div>
+</div>
+
+<!-- ADMIN -->
+<div class="box">
+<h3>🔧 Admin</h3>
+<input id="adminPass" type="password" placeholder="Password">
+<button onclick="login()">Enter</button>
+<div id="adminPanel" style="display:none;"></div>
+</div>
+
 </div>
 
 <script>
-const supabaseUrl = "https://YOUR_PROJECT.supabase.co";
-const supabaseKey = "YOUR_ANON_KEY";
-const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+const supabaseClient = supabase.createClient(
+"https://wfnoqpbqwvfhkttgjald.supabase.co",
+"sb_publishable_prN_qRoPSNE3fEpSEB7XtA_ScMpnZSo"
+);
+
+// COURSE DATA
+function getCourse(course){
+
+if(course==="St Patrick's Links"){
+return {
+pars:[4,4,3,5,3,5,4,4,4,4,4,5,4,4,3,4,3,4],
+si:[7,11,17,3,13,1,9,15,5,8,6,4,12,10,18,2,14,16]
+};
+}
+
+if(course==="Sandy Hills"){
+return {
+pars:[5,4,3,4,4,4,3,5,4,4,3,4,5,4,4,3,5,4],
+si:[13,3,17,11,5,1,15,9,7,6,12,10,8,18,2,14,16,4]
+};
+}
+
+return {
+pars:[4,4,3,4,4,3,4,4,5,4,4,4,3,4,4,3,4,5],
+si:[9,5,17,1,7,13,15,3,11,2,4,18,6,10,14,8,12,16]
+};
+
+}
+
+// SCORECARD
+function renderScorecard(){
+
+let course=document.getElementById("course").value;
+if(!course) return;
+
+let data=getCourse(course);
+let html="";
+
+for(let i=0;i<18;i++){
+html+=`
+<div class="hole">
+<b>${i+1}</b>
+<div class="par">Par ${data.pars[i]}</div>
+<div class="si">SI ${data.si[i]}</div>
+<input type="number" id="h${i+1}">
+</div>`;
+}
+
+document.getElementById("scorecard").innerHTML=html;
+
+for(let i=1;i<=18;i++){
+let input=document.getElementById("h"+i);
+
+input.oninput=()=>{
+let score=parseInt(input.value||0);
+input.classList.remove("scoreCircle","scoreSquare");
+
+if(score===data.pars[i-1]-1) input.classList.add("scoreCircle");
+if(score===data.pars[i-1]+1) input.classList.add("scoreSquare");
+
+if(input.value && i<18){
+document.getElementById("h"+(i+1)).focus();
+}
+};
+}
+}
 
 // SUBMIT SCORE
-async function submitScore() {
-  const name = document.getElementById("name").value.trim();
-  const course = document.getElementById("course").value;
-  const total = parseInt(document.getElementById("total").value);
-  const stableford = parseInt(document.getElementById("stableford").value);
+async function submitScore(){
 
-  if (!name || isNaN(total) || isNaN(stableford)) {
-    alert("Please fill in all fields");
-    return;
-  }
+let name=document.getElementById("name").value;
+let course=document.getElementById("course").value;
+let tees=document.getElementById("tees").value;
+let hcp=document.getElementById("hcp").value;
 
-  // Prevent duplicate entry per course
-  let { data: existing } = await supabase
-    .from("scores")
-    .select("*")
-    .eq("name", name)
-    .eq("course", course);
+if(!name) return alert("Select player");
+if(!course) return alert("Select course");
+if(!tees) return alert("Select tees");
+if(hcp==="") return alert("Enter handicap");
 
-  if (existing.length > 0) {
-    alert("Score already submitted for this course");
-    return;
-  }
+hcp=parseInt(hcp);
 
-  await supabase.from("scores").insert([
-    { name, course, total, stableford }
-  ]);
+// prevent duplicate
+const { data: existing } = await supabaseClient
+.from("scores")
+.select("id")
+.eq("name", name)
+.eq("course", course);
 
-  alert("Score submitted!");
-  loadScores();
+if(existing && existing.length > 0){
+alert("⚠️ Score already submitted for this course");
+return;
 }
 
-// LOAD SCORES
-async function loadScores() {
-  let { data } = await supabase.from("scores").select("*");
+let data=getCourse(course);
 
-  const courses = ["Sandy Hills", "Old Tom Morris", "St Patrick's"];
+let total=0, back9=0;
 
-  // COURSE LEADERBOARDS
-  let leaderboardHTML = "";
-
-  courses.forEach(course => {
-    let scores = data
-      .filter(s => s.course === course)
-      .sort((a,b) => b.stableford - a.stableford);
-
-    leaderboardHTML += `<div class="leaderboard"><h3>${course}</h3>`;
-
-    scores.forEach(s => {
-      leaderboardHTML += `<div>${s.name} - ${s.stableford}</div>`;
-    });
-
-    leaderboardHTML += `</div>`;
-  });
-
-  document.getElementById("leaderboards").innerHTML = leaderboardHTML;
-
-  // OVERALL LEADERBOARD (NEW)
-  let overallMap = {};
-
-  data.forEach(s => {
-    if (!overallMap[s.name]) overallMap[s.name] = 0;
-    overallMap[s.name] += s.stableford;
-  });
-
-  let overallArray = Object.keys(overallMap).map(name => ({
-    name: name,
-    total: overallMap[name]
-  }));
-
-  overallArray.sort((a,b) => b.total - a.total);
-
-  let overallHTML = "";
-
-  overallArray.forEach(p => {
-    overallHTML += `<div>${p.name} - ${p.total}</div>`;
-  });
-
-  document.getElementById("overallLeaderboard").innerHTML = overallHTML;
+for(let i=1;i<=18;i++){
+let v=parseInt(document.getElementById("h"+i).value||0);
+total+=v;
+if(i>9) back9+=v;
 }
 
-// ADMIN LOGIN
-function adminLogin() {
-  const password = prompt("Enter admin password");
+let totalPar=data.pars.reduce((a,b)=>a+b,0);
+let net=total-hcp;
+let stableford=36+(totalPar-net);
 
-  if (password === "8886") {
-    document.getElementById("adminPanel").classList.remove("hidden");
-    loadAdmin();
-  } else {
-    alert("Wrong password");
-  }
-}
+await supabaseClient.from("scores").insert([{
+id: crypto.randomUUID(),
+name,
+course,
+tees,
+total,
+net,
+stableford,
+back9,
+created_at:new Date()
+}]);
 
-// LOAD ADMIN DATA
-async function loadAdmin() {
-  let { data } = await supabase.from("scores").select("*");
+alert("Submitted");
 
-  let html = "";
-
-  data.forEach(s => {
-    html += `
-      <div>
-        ${s.name} - ${s.course} - ${s.stableford}
-        <button onclick="deleteScore(${s.id})">Delete</button>
-      </div>
-    `;
-  });
-
-  document.getElementById("adminScores").innerHTML = html;
-}
-
-// DELETE SCORE
-async function deleteScore(id) {
-  await supabase.from("scores").delete().eq("id", id);
-  loadScores();
-  loadAdmin();
-}
-
-// INITIAL LOAD
+renderScorecard();
 loadScores();
+}
+
+// LOAD SCORES + ALL LEADERBOARDS
+async function loadScores(){
+
+const { data } = await supabaseClient.from("scores").select("*");
+if(!data) return;
+
+// sort helper
+function sortBoard(arr){
+arr.sort((a,b)=>{
+if(b.stableford!==a.stableford) return b.stableford-a.stableford;
+return a.back9-b.back9;
+});
+}
+
+// render helper
+function render(arr, el){
+let html="";
+arr.forEach((p,i)=>{
+html+=`
+<div class="leaderItem">
+${i+1}. ${p.name}<br>
+Gross ${p.total} | Net ${p.net} | ${p.stableford} pts
+</div>`;
+});
+document.getElementById(el).innerHTML = html || "No scores yet";
+}
+
+// course boards
+let sandy = data.filter(p=>p.course==="Sandy Hills");
+let stp = data.filter(p=>p.course==="St Patrick's Links");
+let old = data.filter(p=>p.course==="Old Tom Morris");
+
+sortBoard(sandy);
+sortBoard(stp);
+sortBoard(old);
+
+render(sandy,"board-sandy");
+render(stp,"board-stp");
+render(old,"board-old");
+
+// ✅ OVERALL
+let overallMap = {};
+
+data.forEach(p=>{
+if(!overallMap[p.name]){
+overallMap[p.name] = {
+name: p.name,
+stableford: 0,
+back9: 0,
+rounds: 0
+};
+}
+overallMap[p.name].stableford += p.stableford;
+overallMap[p.name].back9 += p.back9;
+overallMap[p.name].rounds += 1;
+});
+
+let overall = Object.values(overallMap);
+
+// only show players with all 3 rounds
+overall = overall.filter(p=>p.rounds === 3);
+
+sortBoard(overall);
+
+let html="";
+overall.forEach((p,i)=>{
+html+=`
+<div class="leaderItem">
+${i+1}. ${p.name}<br>
+${p.stableford} pts total
+</div>`;
+});
+
+document.getElementById("board-overall").innerHTML =
+html || "No complete scores yet";
+
+}
+
+// ADMIN
+function login(){
+if(document.getElementById("adminPass").value==="8886"){
+document.getElementById("adminPanel").style.display="block";
+loadAdmin();
+}else alert("Wrong password");
+}
+
+async function loadAdmin(){
+
+const { data } = await supabaseClient
+.from("scores")
+.select("*")
+.order("created_at",{ascending:false});
+
+let html="<h4>Review Scores</h4>";
+
+data.forEach(p=>{
+html+=`
+<div class="adminItem">
+<b>${p.name}</b> (${p.course})<br>
+${p.stableford} pts<br>
+<button onclick="del('${p.id}')">Delete</button>
+</div>`;
+});
+
+document.getElementById("adminPanel").innerHTML=html;
+}
+
+async function del(id){
+await supabaseClient.from("scores").delete().eq("id",id);
+loadAdmin();
+loadScores();
+}
+
+// INIT
+loadScores();
+
 </script>
 
 </body>
