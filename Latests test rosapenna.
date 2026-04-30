@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Rosapenna 2026</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+<style>
+body {
+  margin:0;
+  background: linear-gradient(#0b3d2e,#021a13);
+  display:flex;
+  justify-content:center;
+  font-family: Arial;
+}
+
+.app {
+  max-width:420px;
+  width:100%;
+  color:white;
+}
+
+h1 { color:gold; text-align:center; }
+
+.box {
+  background:#102820;
+  margin:10px;
+  padding:12px;
+  border-radius:12px;
+}
+
+select, input {
+  width:100%;
+  padding:10px;
+  margin:5px 0;
+  border:none;
+  border-radius:8px;
+  text-align:center;
+  box-sizing:border-box;
+}
+
+button {
+  width:100%;
+  padding:12px;
+  background:gold;
+  border:none;
+  border-radius:10px;
+  font-weight:bold;
+}
+
+.scorecard {
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:6px;
+}
+
+.hole {
+  background:#0d221b;
+  padding:6px;
+  border-radius:10px;
+  text-align:center;
+  font-size:12px;
+}
+
+.par { font-size:11px; color:#ccc; }
+.si { font-size:10px; color:#888; }
+
+.scoreCircle { border:2px solid #00ffcc; border-radius:50%; }
+.scoreSquare { border:2px solid red; border-radius:4px; }
+
+.leaderItem {
+  border-bottom:1px solid #333;
+  padding:8px 0;
+}
+
+.adminItem {
+  border-top:1px solid #333;
+  padding-top:8px;
+  margin-top:8px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+<h1>Rosapenna 2026 ⛳</h1>
+
+<div class="box">
+
+<select id="name">
+<option value="">Select Player</option>
+<option>Con</option><option>Dan</option><option>Dave Mc</option>
+<option>Graham</option><option>Joe</option><option>Karl</option>
+<option>Liam</option><option>Louis</option><option>Mick</option>
+<option>Morgan</option><option>Niallers</option><option>Patsy</option>
+<option>Potdogg</option><option>The Bigbird</option>
+</select>
+
+<select id="course" onchange="updateTees(); renderScorecard();">
+<option value="">Select Course</option>
+<option>Sandy Hills</option>
+<option>St Patrick's Links</option>
+<option>Old Tom Morris</option>
+</select>
+
+<select id="tees">
+<option value="">Select Tees</option>
+</select>
+
+<input id="hcp" type="number" placeholder="Handicap">
+
+<div id="scorecard" class="scorecard"></div>
+
+<button onclick="submitScore()">Submit Round</button>
+
+</div>
+
+<!-- Leaderboards per course -->
+<div class="box">
+<h3>🏆 Sandy Hills</h3>
+<div id="board-sandy"></div>
+</div>
+
+<div class="box">
+<h3>🏆 St Patrick's Links</h3>
+<div id="board-stp"></div>
+</div>
+
+<div class="box">
+<h3>🏆 Old Tom Morris</h3>
+<div id="board-old"></div>
+</div>
+
+<div class="box">
+<h3>🔧 Admin</h3>
+<input id="adminPass" type="password" placeholder="Password">
+<button onclick="login()">Enter</button>
+<div id="adminPanel" style="display:none;"></div>
+</div>
+
+</div>
+
+<script>
+
+const supabaseClient = supabase.createClient(
+"https://wfnoqpbqwvfhkttgjald.supabase.co",
+"sb_publishable_prN_qRoPSNE3fEpSEB7XtA_ScMpnZSo"
+);
+
+// COURSE DATA
+function getCourse(course, tee){
+
+  if(course === "St Patrick's Links"){
+    const data = {
+      pars: [4,4,3,5,3,5,4,4,4,4,4,5,4,4,3,4,3,4],
+      si:   [9,11,17,5,13,7,3,15,1,8,6,4,12,10,18,2,14,16],
+      sandstone: [381,372,178,555,214,571,417,339,460,412,472,560,376,399,130,534,199,361],
+      slate:     [369,358,167,508,153,522,399,318,460,400,450,546,343,365,125,487,176,344],
+      granite:   [345,339,163,451,144,506,368,280,398,356,399,482,333,340,117,471,155,272]
+    };
+    return data;
+  }
+
+  if(course === "Sandy Hills"){
+    const data = {
+      pars: [5,4,3,4,4,4,3,5,4,4,3,4,5,4,4,3,5,4],
+      si:   [13,3,17,11,5,1,15,9,7,6,12,10,8,18,2,14,16,4],
+      black: [483,452,178,341,370,415,194,534,439,360,182,401,503,353,469,187,474,432],
+      blue:  [483,400,155,341,370,384,194,475,400,360,182,315,503,324,403,162,474,387],
+      white: [462,400,144,298,331,365,175,430,374,334,156,315,479,324,374,138,449,342]
+    };
+    return data;
+  }
+
+  // Old Tom Morris
+  const data = {
+    pars: [4,3,4,4,4,4,3,5,4,4,4,4,4,3,4,5,3,5],
+    si:   [6,18,4,12,8,2,16,14,10,5,1,7,15,13,3,17,11,9],
+    black: [411,151,435,415,406,401,171,532,413,436,429,401,345,192,417,501,210,601],
+    blue:  [411,151,409,368,391,401,164,496,356,436,429,377,308,175,393,501,185,544],
+    white: [360,136,339,368,340,330,154,452,356,412,386,377,308,175,362,480,185,544]
+  };
+  return data;
+
+}
+
+// UPDATE TEES BASED ON COURSE
+function updateTees(){
+  let course = document.getElementById("course").value;
+  let teeSelect = document.getElementById("tees");
+  teeSelect.innerHTML = '<option value="">Select Tees</option>';
+
+  if(course === "St Patrick's Links"){
+    teeSelect.innerHTML += '<option value="sandstone">Sandstone</option>';
+    teeSelect.innerHTML += '<option value="slate">Slate</option>';
+    teeSelect.innerHTML += '<option value="granite">Granite</option>';
+  } else if(course === "Sandy Hills" || course === "Old Tom Morris"){
+    teeSelect.innerHTML += '<option value="black">Black</option>';
+    teeSelect.innerHTML += '<option value="blue">Blue</option>';
+    teeSelect.innerHTML += '<option value="white">White</option>';
+  }
+}
+
+// SCORECARD
+function renderScorecard(){
+
+  let course = document.getElementById("course").value;
+  if(!course) return;
+
+  let data = getCourse(course);
+  let html = "";
+
+  for(let i=0; i<18; i++){
+    html += `
+    <div class="hole">
+    <b>${i+1}</b>
+    <div class="par">Par ${data.pars[i]}</div>
+    <div class="si">SI ${data.si[i]}</div>
+    <input type="number" id="h${i+1}">
+    </div>`;
+  }
+
+  document.getElementById("scorecard").innerHTML = html;
+
+  for(let i=1; i<=18; i++){
+    let input = document.getElementById("h"+i);
+    input.oninput = () => {
+      let score = parseInt(input.value||0);
+      input.classList.remove("scoreCircle","scoreSquare");
+      if(score === data.pars[i-1]-1) input.classList.add("scoreCircle");
+      if(score === data.pars[i-1]+1) input.classList.add("scoreSquare");
+      if(input.value && i<18){
+        document.getElementById("h"+(i+1)).focus();
+      }
+    };
+  }
+}
+
+// SUBMIT
+async function submitScore(){
+
+  let name   = document.getElementById("name").value;
+  let course = document.getElementById("course").value;
+  let tees   = document.getElementById("tees").value;
+  let hcp    = document.getElementById("hcp").value;
+
+  if(!name)   return alert("Select player");
+  if(!course) return alert("Select course");
+  if(!tees)   return alert("Select tees");
+  if(hcp==="") return alert("Enter handicap");
+
+  hcp = parseInt(hcp);
+
+  const { data: existing } = await supabaseClient
+    .from("scores")
+    .select("id")
+    .eq("name", name)
+    .eq("course", course);
+
+  if(existing && existing.length > 0){
+    alert("⚠️ You have already submitted a score for this course");
+    return;
+  }
+
+  let data = getCourse(course);
+
+  let total=0, back9=0;
+
+  for(let i=1; i<=18; i++){
+    let v = parseInt(document.getElementById("h"+i).value||0);
+    total += v;
+    if(i>9) back9 += v;
+  }
+
+  let totalPar = data.pars.reduce((a,b)=>a+b,0);
+  let net = total - hcp;
+  let stableford = 36 + (totalPar - net);
+
+  const { error } = await supabaseClient.from("scores").insert([{
+    id: crypto.randomUUID(),
+    name,
+    course,
+    tees,
+    total,
+    net,
+    stableford,
+    back9,
+    created_at: new Date()
+  }]);
+
+  if(error){
+    if(error.message && error.message.toLowerCase().includes("duplicate")){
+      alert("⚠️ Score already exists for this player on this course");
+    } else {
+      alert("ERROR: " + error.message);
+    }
+    return;
+  }
+
+  alert("Submitted");
+  renderScorecard();
+  loadScores();
+}
+
+// LEADERBOARDS
+async function loadScores(){
+
+  const { data } = await supabaseClient.from("scores").select("*");
+  if(!data) return;
+
+  function sortBoard(arr){
+    arr.sort((a,b)=>{
+      if(b.stableford !== a.stableford) return b.stableford - a.stableford;
+      return a.back9 - b.back9;
+    });
+  }
+
+  function render(arr, el){
+    let html = "";
+    arr.forEach((p,i)=>{
+      html += `
+      <div class="leaderItem">
+      ${i+1}. ${p.name}<br>
+      Gross ${p.total} | Net ${p.net} | ${p.stableford} pts
+      </div>`;
+    });
+    document.getElementById(el).innerHTML = html || "No scores yet";
+  }
+
+  let sandy = data.filter(p=>p.course==="Sandy Hills");
+  let stp   = data.filter(p=>p.course==="St Patrick's Links");
+  let old   = data.filter(p=>p.course==="Old Tom Morris");
+
+  sortBoard(sandy);
+  sortBoard(stp);
+  sortBoard(old);
+
+  render(sandy, "board-sandy");
+  render(stp,   "board-stp");
+  render(old,   "board-old");
+}
+
+// ADMIN
+function login(){
+  if(document.getElementById("adminPass").value==="8886"){
+    document.getElementById("adminPanel").style.display="block";
+    loadAdmin();
+  } else alert("Wrong password");
+}
+
+async function loadAdmin(){
+
+  const { data } = await supabaseClient
+    .from("scores")
+    .select("*")
+    .order("created_at",{ascending:false});
+
+  let html = "<h4>Review Scores</h4>";
+
+  data.forEach(p=>{
+    html += `
+    <div class="adminItem">
+    <b>${p.name}</b> (${p.course})<br>
+    ${p.stableford} pts<br>
+    <button onclick="del('${p.id}')">Delete</button>
+    </div>`;
+  });
+
+  document.getElementById("adminPanel").innerHTML = html;
+}
+
+async function del(id){
+  await supabaseClient.from("scores").delete().eq("id",id);
+  loadAdmin();
+  loadScores();
+}
+
+// INIT
+loadScores();
+
+</script>
+
+</body>
+</html>
